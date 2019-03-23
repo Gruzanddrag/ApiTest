@@ -11,6 +11,12 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
+
+
+
+Route::prefix('api')->group(function(){
+    Route::get('/home', function () {
+        return view('welcome');
+    });
+    Route::post('/auth', 'ApiController@authUser');
 });
