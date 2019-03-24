@@ -10,6 +10,7 @@ use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
+    public static $userToken = "03739B69410B83A49EC9629A64A53B4F";
     /**
      * Display a listing of the resource.
      *
@@ -34,47 +35,44 @@ class PostController extends Controller
      */
     public function create(Request $request)
     {
+        $response = new JsonResponse();
+        $errors = array();
         $req = $request->all();
         $allFiles = $request->file();
         $file = array_shift($allFiles);
-        $file->storeAs('/', $file->getClientOriginalName());
+        $imageURL = null;
+        $token = $request->bearerToken();
+        if($token != PostController::$userToken && $token != null){
+            $response->setJson( json_encode( array( 'message' => 'Unauthorized') ) );
+            $response->setStatusCode(401, 'Unauthorized');
+            return $response;
+        }
         $json = json_decode(array_shift($req));
-        $errors = array();
-        if(!isset($json->{'title'}) || $json->{'title'} === "") {
-            $errors = array_add($errors, 'title', 'title is empty');
-        }
-        else{
-            $title = $json->{'title'};
-        }
-        if(!isset($json->{'anons'}) || $json->{'anons'} === ""){
-            $errors = array_add($errors, 'anons', 'anons is empty');
-        }
-        else{
-            $anons = $json->{'anons'};
-        }
-        if(!isset($json->{'text'}) || $json->{'text'} === ""){
-            $errors = array_add($errors, 'text' , 'text is empty');
-        }
-        else{
-            $text = $json->{'text'};
-        }
-        $colZTags = substr_count($json->{'tags'}, ",");
-        $colSpaceTags = substr_count($json->{'tags'}, " ");
-        if(isset($json->{'tags'}) && ($colSpaceTags > 0 && $colZTags == 0)){
+        $title = $json->{'title'} ?? $errors = array_add($errors, 'title', 'title is empty');
+        $anons = $json->{'anons'} ?? $errors = array_add($errors, 'anons', 'anons is empty');
+        $text = $json->{'text'} ?? $errors = array_add($errors, 'text', 'text is empty');
+        $colZTags = isset($json->{'tags'}) ? substr_count($json->{'tags'}, ",") : 0;
+        $colSpaceTags = isset($json->{'tags'}) ? substr_count($json->{'tags'}, " ") : 0;
+        if(!isset($json->{'tags'})){
             $errors = array_add($errors, 'tags' , 'incorrect tags format');
         }
         else{
             $tags = $json->{'tags'};
         }
-//        if (!isset($image)) {
-//            $errors = array_add($errors, 'image', 'no image');
-//        }
-        //TODO: Make unique test from DB
-        $image = $request->input('image');
-        $response = new JsonResponse();
+        if(isset($file)){
+            $file->storeAs('/post_images', $file->getClientOriginalName());
+            $imageURL = 'http://myapitest/api/post_images/' . $file->getClientOriginalName();
+        }
+        else{
+            $errors = array_add($errors, 'image', 'no image');
+        }
+        $dbTitle = DB::table('posts')->where('title', '=', $title)->value('title');
+        if(isset($dbTitle)){
+            $errors = array_add($errors, 'title', 'already exists');
+        }
         if(count($errors) === 0){
-            $response->setJson( json_encode( array( 'title' => $title, 'anons' => $anons, 'text' => $text, 'tags' => $tags) ) );
-//              $response->setJson( json_encode( array( 'title' => $title) ) );
+            $postId = DB::table('posts')->insertGetId(['title' => $title, 'anons' => $anons, 'text' => $text, 'tags' => $tags, 'image' => $imageURL]);
+            $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $postId, 'image' => $imageURL ) ) );
             $response->setStatusCode(201, 'Successful creation');
             return $response;
         }
@@ -87,7 +85,7 @@ class PostController extends Controller
     }
 
     /**
-     * Store a newly created resource in post_images.
+     * Store a newly created resource in api.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
@@ -120,7 +118,7 @@ class PostController extends Controller
     }
 
     /**
-     * Update the specified resource in post_images.
+     * Update the specified resource in api.
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \App\Article  $article
@@ -132,7 +130,7 @@ class PostController extends Controller
     }
 
     /**
-     * Remove the specified resource from post_images.
+     * Remove the specified resource from api.
      *
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response

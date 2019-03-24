@@ -103,8 +103,8 @@ return [
     | Session Sweeping Lottery
     |--------------------------------------------------------------------------
     |
-    | Some session drivers must manually sweep their post_images location to get
-    | rid of old sessions from post_images. Here are the chances that it will
+    | Some session drivers must manually sweep their api location to get
+    | rid of old sessions from api. Here are the chances that it will
     | happen on a given request. By default, the odds are 2 out of 100.
     |
     */

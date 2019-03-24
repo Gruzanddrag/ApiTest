@@ -23,7 +23,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | This option determines where all the compiled Blade templates will be
-    | stored for your application. Typically, this is within the post_images
+    | stored for your application. Typically, this is within the api
     | directory. However, as usual, you are free to change this value.
     |
     */

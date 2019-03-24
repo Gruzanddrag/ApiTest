@@ -6,13 +6,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\User;
 
-class AuthApiController extends Controller
+class ApiController extends Controller
 {
 
     public function authUser(Request $request){
-        $login = $request->input('login');
-        $pass = $request->input('password');
-        $token = "LUPAZALUPA";
+        $req = (object) $request->all();
+        $json = json_decode(current($req)) ?? $req;
+        $login = $json->{'login'};
+        $pass = $json->{'password'};
+        $token = PostController::$userToken;
         $response = new JsonResponse();
         if($login == "admin" && $pass == "admin"){
             $response->setJson(json_encode(array('status' => 'true', 'token' => $token)));

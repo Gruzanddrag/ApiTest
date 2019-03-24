@@ -79,9 +79,7 @@
 
             <div class="content">
                 <div class="panel panel-default">
-                    <form action="{{route('/api/posts')}}">
-
-                    </form>
+                    WELCOME
                 </div>
             </div>
         </div>
