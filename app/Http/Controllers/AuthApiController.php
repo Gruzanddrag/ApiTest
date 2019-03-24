@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\User;
 
-class ApiController extends Controller
+class AuthApiController extends Controller
 {
 
     public function authUser(Request $request){

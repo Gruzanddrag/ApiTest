@@ -16,7 +16,9 @@
 
 Route::prefix('api')->group(function(){
     Route::get('/home', function () {
-        return view('welcome');
+        return view('addPost');
     });
     Route::post('/auth', 'ApiController@authUser');
+    Route::post('/posts', 'PostController@create');
+    Route::post('/bul', 'PostController@index');
 });
