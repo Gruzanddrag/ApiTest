@@ -19,6 +19,8 @@ Route::prefix('api')->group(function(){
         return view('addPost');
     });
     Route::post('/auth', 'ApiController@authUser');
-    Route::post('/posts', 'PostController@create');
-    Route::post('/bul', 'PostController@index');
+    Route::middleware('isAuth')->group(function (){
+        Route::post('/posts', 'PostController@create');
+        Route::post('/bul', 'PostController@index');
+    });
 });

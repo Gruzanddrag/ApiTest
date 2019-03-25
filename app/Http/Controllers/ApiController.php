@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\isAuth;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Http\Resources\User;
@@ -14,7 +15,7 @@ class ApiController extends Controller
         $json = json_decode(current($req)) ?? $req;
         $login = $json->{'login'};
         $pass = $json->{'password'};
-        $token = PostController::$userToken;
+        $token = isAuth::$userToken;
         $response = new JsonResponse();
         if($login == "admin" && $pass == "admin"){
             $response->setJson(json_encode(array('status' => 'true', 'token' => $token)));

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Article;
+use Illuminate\Support\Facades\Log;
+use Validator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +12,6 @@ use Illuminate\Http\Response;
 
 class PostController extends Controller
 {
-    public static $userToken = "03739B69410B83A49EC9629A64A53B4F";
     /**
      * Display a listing of the resource.
      *
@@ -18,13 +19,21 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
+        $allFiles = $request->file();
+        $file = current($allFiles);
+        $req = (object) $request->all();
+        $json = json_decode(current($req)) ?? $req;
+        $tags = $json->{'tags'};
+        trim($tags);
+        $f = false;
+        $tags = strpos($tags, ' ') ? $f = true : explode(',', $tags);
+        if($f){
+            return "SOSATB";
+        }
+        $tags = explode(',', $tags);
+        Log::info($tags);
         $response = new Response();
-        $req = $request->all();
-//        foreach ($json as $v){
-//            $mas = array_add($mas, 'AW', );
-//        }
-        $json = json_encode(array_shift($req));
-        $response->setContent($json);
+        $response->setContent('awddwa');
         return $response;
     }
 
@@ -35,43 +44,30 @@ class PostController extends Controller
      */
     public function create(Request $request)
     {
+
         $response = new JsonResponse();
         $errors = array();
         $req = $request->all();
-        $allFiles = $request->file();
-        $file = array_shift($allFiles);
         $imageURL = null;
-        $token = $request->bearerToken();
-        if($token != PostController::$userToken && $token != null){
-            $response->setJson( json_encode( array( 'message' => 'Unauthorized') ) );
-            $response->setStatusCode(401, 'Unauthorized');
-            return $response;
-        }
         $json = json_decode(array_shift($req));
         $title = $json->{'title'} ?? $errors = array_add($errors, 'title', 'title is empty');
         $anons = $json->{'anons'} ?? $errors = array_add($errors, 'anons', 'anons is empty');
         $text = $json->{'text'} ?? $errors = array_add($errors, 'text', 'text is empty');
-        $colZTags = isset($json->{'tags'}) ? substr_count($json->{'tags'}, ",") : 0;
-        $colSpaceTags = isset($json->{'tags'}) ? substr_count($json->{'tags'}, " ") : 0;
-        if(!isset($json->{'tags'})){
-            $errors = array_add($errors, 'tags' , 'incorrect tags format');
-        }
-        else{
-            $tags = $json->{'tags'};
-        }
+        $tags = $json->{'tags'};
+        trim($tags);
+        $tags = strpos($tags, ' ') ? $errors = array_add($errors, 'tags' , 'incorrect tags format') : explode(',', $tags);
+        $file = current($request->file());
         if(isset($file)){
             $file->storeAs('/post_images', $file->getClientOriginalName());
-            $imageURL = 'http://myapitest/api/post_images/' . $file->getClientOriginalName();
+            $imageURL = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
         }
         else{
             $errors = array_add($errors, 'image', 'no image');
         }
-        $dbTitle = DB::table('posts')->where('title', '=', $title)->value('title');
-        if(isset($dbTitle)){
-            $errors = array_add($errors, 'title', 'already exists');
-        }
+        //Проверка на уникальность
+        $checkUnique = DB::table('posts')->where('title', '=', $title)->value('title') == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
         if(count($errors) === 0){
-            $postId = DB::table('posts')->insertGetId(['title' => $title, 'anons' => $anons, 'text' => $text, 'tags' => $tags, 'image' => $imageURL]);
+            $postId = DB::table('posts')->insertGetId(['title' => $title, 'anons' => $anons, 'text' => $text, 'tags' => json_encode($tags), 'image' => $imageURL]);
             $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $postId, 'image' => $imageURL ) ) );
             $response->setStatusCode(201, 'Successful creation');
             return $response;
