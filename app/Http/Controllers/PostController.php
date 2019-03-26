@@ -37,6 +37,14 @@ class PostController extends Controller
         return $response;
     }
 
+    static public function validateTags($tags){
+        trim($tags);
+        if(isset($tags)){
+            $tags = strpos($tags, ' ') ? $errors = array_add($errors, 'tags' , 'incorrect tags format') : explode(',', $tags);
+        }
+        return $tags; 
+    }
+
     /**
      * Show the form for creating a new resource.
      *
@@ -53,10 +61,11 @@ class PostController extends Controller
         $title = $json->{'title'} ?? $errors = array_add($errors, 'title', 'title is empty');
         $anons = $json->{'anons'} ?? $errors = array_add($errors, 'anons', 'anons is empty');
         $text = $json->{'text'} ?? $errors = array_add($errors, 'text', 'text is empty');
-        $tags = $json->{'tags'};
-        trim($tags);
-        $tags = strpos($tags, ' ') ? $errors = array_add($errors, 'tags' , 'incorrect tags format') : explode(',', $tags);
+        $tags = isset($json->{'tags'}) ?? null;
+        
         $file = current($request->file());
+        Log::info($file);
+        //return 'awdaw';
         if(isset($file)){
             $file->storeAs('/post_images', $file->getClientOriginalName());
             $imageURL = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
@@ -108,9 +117,22 @@ class PostController extends Controller
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response
      */
-    public function edit(Article $article)
+    public function edit(Request $request, $idPost)
     {
-        //
+        $post = DB::table('posts')->where('id', $idPost);
+        Log::info(json_encode($post->first()));
+        $response = new JsonResponse();
+        $errors = array();
+        $req = $request->all();
+        $file = current($request->file());
+        if(isset($file)){
+            $file->storeAs('/post_images', $file->getClientOriginalName());
+            $imageURL = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
+            $post->update(['image' => $imageURL]);
+        }
+        $json = json_decode(array_shift($req), true);
+        $curPost = $post->update($json);
+        return json_encode($post->first());
     }
 
     /**

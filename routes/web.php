@@ -22,5 +22,6 @@ Route::prefix('api')->group(function(){
     Route::middleware('isAuth')->group(function (){
         Route::post('/posts', 'PostController@create');
         Route::post('/bul', 'PostController@index');
+        Route::post('/posts/{id}', 'PostController@edit');
     });
 });
