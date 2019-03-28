@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 
 class PostController extends Controller
 {
@@ -40,12 +41,44 @@ class PostController extends Controller
         return $response;
     }
 
-    static public function validateTags($tags){
-        trim($tags);
-        if(isset($tags)){
-            $tags = strpos($tags, ' ') ? $errors = array_add($errors, 'tags' , 'incorrect tags format') : explode(',', $tags);
+    public function validateTags($tags){
+        Log::info(json_encode($tags));
+        if(!is_array($tags)){
+            $tags = trim($tags);
+            if(isset($tags)){
+                if (strpos($tags, ' ') || substr($tags, -1) == ','){
+                    return false;
+                }
+                else{
+                    $tags = explode(',', $tags);
+                }
+            }
         }
         return $tags;
+    }
+
+    /**
+     * @param $file
+     * @return array|bool
+     */
+    public function validateImage($file){
+        $errors = array();
+        if($file != null || $file != ''){
+            if($file->extension() != 'png' && $file->extension() != 'jpeg'){
+                $errors = array_add($errors, 'image', 'invalid file extension');
+            }
+            else if($file->getSize() / 1024 / 1024 > 2){
+                $errors = array_add($errors, 'image', 'file size is greater than 2MB');
+            }
+            else{
+                $file->storeAs('/post_images', $file->getClientOriginalName());
+                return true;
+            }
+        }
+        else{
+            $errors = array_add($errors, 'image', 'no image');
+        }
+        return $errors;
     }
 
     /**
@@ -55,27 +88,20 @@ class PostController extends Controller
      */
     public function create(Request $request)
     {
-
         $response = new JsonResponse();
         $errors = array();
         $req = $request->all();
-        $imageURL = null;
         $json = json_decode(array_shift($req));
+        $file = current($request->file());
+        $validFile = $this->validateImage($file);
+        $imageURL = $validFile === true ? $request->root() . '/api/post_images/' . $file->getClientOriginalName() : $errors = $validFile;
         $title = $json->{'title'} ?? $errors = array_add($errors, 'title', 'title is empty');
         $anons = $json->{'anons'} ?? $errors = array_add($errors, 'anons', 'anons is empty');
         $text = $json->{'text'} ?? $errors = array_add($errors, 'text', 'text is empty');
-        $tags = isset($json->{'tags'}) ?? null;
-
-        $file = current($request->file());
-        Log::info($file);
-        //return 'awdaw';
-        if(isset($file)){
-            $file->storeAs('/post_images', $file->getClientOriginalName());
-            $imageURL = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
-        }
-        else{
-            $errors = array_add($errors, 'image', 'no image');
-        }
+        $tags = isset($json->{'tags'}) ? $json->{'tags'} : null;
+        $tags = $this->validateTags($tags);
+        //Log::info($tags);
+        $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
         //Проверка на уникальность
         $checkUnique = DB::table('posts')->where('title', '=', $title)->value('title') == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
         if(count($errors) === 0){
@@ -122,18 +148,28 @@ class PostController extends Controller
      */
     public function edit(Request $request, $idPost)
     {
+        $json = json_decode(array_shift($req), true);
         $post = DB::table('posts')->where('id', $idPost);
         Log::info(json_encode($post->first()));
+        if($post == null || $post == ""){
+            Log::info('awdawd');
+            $response = new JsonResponse();
+            $response->setJson(json_encode(array("message" => "Post don't found")));
+            $response->setStatusCode(404, "Post don't found");
+            return $response;
+        }
         $response = new JsonResponse();
         $errors = array();
         $req = $request->all();
         $file = current($request->file());
-        if(isset($file)){
-            $file->storeAs('/post_images', $file->getClientOriginalName());
-            $imageURL = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
-            $post->update(['image' => $imageURL]);
-        }
-        $json = json_decode(array_shift($req), true);
+        $validFile = $this->validateImage($file);
+        $imageURL = $validFile === true ? $request->root() . '/api/post_images/' . $file->getClientOriginalName() : $errors = $validFile;
+        $post->update(['image' => $imageURL]);
+        $tags = isset($json->{'tags'}) ? $json->{'tags'} : null;
+        $tags = $this->validateTags($tags);
+        $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
+        $checkUnique = DB::table('posts')->where('title', '=', $title)->value('title') == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
+
         $curPost = $post->update($json);
         return json_encode($post->first());
     }
