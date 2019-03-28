@@ -13,15 +13,15 @@
 
 
 
-
 Route::prefix('api')->group(function(){
-    Route::get('/home', function () {
-        return view('addPost');
-    });
+    Route::get('/lol',  'PostController@lol');
     Route::post('/auth', 'ApiController@authUser');
     Route::middleware('isAuth')->group(function (){
         Route::post('/posts', 'PostController@create');
         Route::post('/bul', 'PostController@index');
         Route::post('/posts/{id}', 'PostController@edit');
+        Route::get('/wantPost/{id}', function($id){
+            return App\Post::find($id);
+        });
     });
 });
