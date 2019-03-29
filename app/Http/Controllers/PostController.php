@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Article;
+use App\Post;
 use Illuminate\Support\Facades\Log;
 use Validator;
 use Illuminate\Http\Request;
@@ -23,22 +23,7 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        $allFiles = $request->file();
-        $file = current($allFiles);
-        $req = (object) $request->all();
-        $json = json_decode(current($req)) ?? $req;
-        $tags = $json->{'tags'};
-        trim($tags);
-        $f = false;
-        $tags = strpos($tags, ' ') ? $f = true : explode(',', $tags);
-        if($f){
-            return "SOSATB";
-        }
-        $tags = explode(',', $tags);
-        Log::info($tags);
-        $response = new Response();
-        $response->setContent('awddwa');
-        return $response;
+        //
     }
 
     public function validateTags($tags){
@@ -61,22 +46,17 @@ class PostController extends Controller
      * @param $file
      * @return array|bool
      */
-    public function validateImage($file){
+    public function validateImage(uploadedFile $file){
         $errors = array();
-        if($file != null || $file != ''){
-            if($file->extension() != 'png' && $file->extension() != 'jpeg'){
-                $errors = array_add($errors, 'image', 'invalid file extension');
-            }
-            else if($file->getSize() / 1024 / 1024 > 2){
-                $errors = array_add($errors, 'image', 'file size is greater than 2MB');
-            }
-            else{
-                $file->storeAs('/post_images', $file->getClientOriginalName());
-                return true;
-            }
+        if($file->extension() != 'png' && $file->extension() != 'jpeg'){
+            $errors = array_add($errors, 'image', 'invalid file extension');
+        }
+        else if($file->getSize() / 1024 / 1024 > 2){
+            $errors = array_add($errors, 'image', 'file size is greater than 2MB');
         }
         else{
-            $errors = array_add($errors, 'image', 'no image');
+            $file->storeAs('/post_images', $file->getClientOriginalName());
+            return true;
         }
         return $errors;
     }
@@ -91,22 +71,30 @@ class PostController extends Controller
         $response = new JsonResponse();
         $errors = array();
         $req = $request->all();
-        $json = json_decode(array_shift($req));
+        $json = json_decode(array_shift($req), true);
         $file = current($request->file());
-        $validFile = $this->validateImage($file);
+        if($file != null || $file != ''){
+            $validFile = $this->validateImage($file);
+        }
+        else{
+            $errors = array_add($errors, 'image', 'no image');
+        }
         $imageURL = $validFile === true ? $request->root() . '/api/post_images/' . $file->getClientOriginalName() : $errors = $validFile;
-        $title = $json->{'title'} ?? $errors = array_add($errors, 'title', 'title is empty');
-        $anons = $json->{'anons'} ?? $errors = array_add($errors, 'anons', 'anons is empty');
-        $text = $json->{'text'} ?? $errors = array_add($errors, 'text', 'text is empty');
-        $tags = isset($json->{'tags'}) ? $json->{'tags'} : null;
+        $title = $json['title'] ?? $errors = array_add($errors, 'title', 'title is empty');
+        $anons = $json['anons'] ?? $errors = array_add($errors, 'anons', 'anons is empty');
+        $text = $json['text'] ?? $errors = array_add($errors, 'text', 'text is empty');
+        $tags = isset($json['tags']) ? $json['tags'] : null;
         $tags = $this->validateTags($tags);
         //Log::info($tags);
         $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
         //Проверка на уникальность
-        $checkUnique = DB::table('posts')->where('title', '=', $title)->value('title') == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
+        $checkUnique = Post::where('title', $title)->first() == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
         if(count($errors) === 0){
-            $postId = DB::table('posts')->insertGetId(['title' => $title, 'anons' => $anons, 'text' => $text, 'tags' => json_encode($tags), 'image' => $imageURL]);
-            $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $postId, 'image' => $imageURL ) ) );
+            $post = new Post;
+            $post->fill($json);
+            $post->image = $imageURL;
+            $post->save();
+            $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $post->id, 'image' => $imageURL ) ) );
             $response->setStatusCode(201, 'Successful creation');
             return $response;
         }
@@ -148,11 +136,10 @@ class PostController extends Controller
      */
     public function edit(Request $request, $idPost)
     {
+        $req = $request->all();
         $json = json_decode(array_shift($req), true);
-        $post = DB::table('posts')->where('id', $idPost);
-        Log::info(json_encode($post->first()));
+        $post = Post::find($idPost);
         if($post == null || $post == ""){
-            Log::info('awdawd');
             $response = new JsonResponse();
             $response->setJson(json_encode(array("message" => "Post don't found")));
             $response->setStatusCode(404, "Post don't found");
@@ -160,17 +147,30 @@ class PostController extends Controller
         }
         $response = new JsonResponse();
         $errors = array();
-        $req = $request->all();
         $file = current($request->file());
-        $validFile = $this->validateImage($file);
-        $imageURL = $validFile === true ? $request->root() . '/api/post_images/' . $file->getClientOriginalName() : $errors = $validFile;
-        $post->update(['image' => $imageURL]);
-        $tags = isset($json->{'tags'}) ? $json->{'tags'} : null;
+        $validFile = false;
+        if($file != null && $file != ''){
+            $validFile = $this->validateImage($file);
+        }
+        $imageURL = $validFile != true ?  : $request->root() . '/api/post_images/' . $file->getClientOriginalName();
+        $post->image = $imageURL != false ? $imageURL : $post->image;
+        $tags = isset($json['tags']) ? $json['tags'] : null;
         $tags = $this->validateTags($tags);
+        $title = $json['title'];
         $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
-        $checkUnique = DB::table('posts')->where('title', '=', $title)->value('title') == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
-
-        $curPost = $post->update($json);
+        $checkUnique = Post::where('title', $title)->first() == null ? : $errors = array_add($errors, 'title', 'already exists');
+        if(count($errors) === 0){
+            $post->fill($json);
+            $post->save();
+            $response->setJson( json_encode( array( 'status' => 'true', 'post' => $post ) ) );
+            $response->setStatusCode(201, 'Successful creation');
+            return $response;
+        }
+        else{
+            $response->setJson( json_encode( array( 'status' => false, 'message' => $errors) ) );
+            $response->setStatusCode(400, 'Editing error');
+            return $response;
+        }
         return json_encode($post->first());
     }
 
