@@ -24,7 +24,8 @@ class isAuth
     public function handle($request, Closure $next)
     {
         $token = $request->bearerToken();
-        if($token != isAuth::$userToken || $token == null || $token == ""){
+        $isComments= $request->is("*comments");
+        if(($token != isAuth::$userToken || $token == null || $token == "") && !$isComments){
             $response = new JsonResponse();
             $response->setJson( json_encode( array( 'message' => 'Unauthorized') ) );
             $response->setStatusCode(401, 'Unauthorized');

@@ -14,14 +14,16 @@
 
 
 Route::prefix('api')->group(function(){
-    Route::get('/lol',  'PostController@lol');
+    Route::post('/lol',  'PostController@lol');
     Route::post('/auth', 'ApiController@authUser');
     Route::middleware('isAuth')->group(function (){
         Route::post('/posts', 'PostController@create');
         Route::post('/bul', 'PostController@index');
         Route::post('/posts/{id}', 'PostController@edit');
-        Route::get('/wantPost/{id}', function($id){
-            return App\Post::find($id);
-        });
+        Route::get('/posts/{id}', 'PostController@show');
+        Route::delete('/posts/{id}', 'PostController@destroy');
+        Route::get('/posts', 'PostController@index');
+        Route::post('posts/{post_id}/comments', 'CommentController@create');
+        Route::delete('posts/{post_id}/comments/{comment_id}', 'CommentController@destroy');
     });
 });

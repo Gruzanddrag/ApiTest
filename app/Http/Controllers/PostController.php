@@ -13,9 +13,7 @@ use Illuminate\Http\UploadedFile;
 
 class PostController extends Controller
 {
-    public function lol(){
-        return view('addPost');
-    }
+
     /**
      * Display a listing of the resource.
      *
@@ -23,44 +21,14 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        //
+        //TODO: make a one method ALL POSTS and ONE POST
+        $response = new JsonResponse();
+        $posts = Post::all();
+        $json = json_encode($posts);
+        $response->setJson($json);
+        $response->setStatusCode(200, 'List posts');
+        return $response;
     }
-
-    public function validateTags($tags){
-        Log::info(json_encode($tags));
-        if(!is_array($tags)){
-            $tags = trim($tags);
-            if(isset($tags)){
-                if (strpos($tags, ' ') || substr($tags, -1) == ','){
-                    return false;
-                }
-                else{
-                    $tags = explode(',', $tags);
-                }
-            }
-        }
-        return $tags;
-    }
-
-    /**
-     * @param $file
-     * @return array|bool
-     */
-    public function validateImage(uploadedFile $file){
-        $errors = array();
-        if($file->extension() != 'png' && $file->extension() != 'jpeg'){
-            $errors = array_add($errors, 'image', 'invalid file extension');
-        }
-        else if($file->getSize() / 1024 / 1024 > 2){
-            $errors = array_add($errors, 'image', 'file size is greater than 2MB');
-        }
-        else{
-            $file->storeAs('/post_images', $file->getClientOriginalName());
-            return true;
-        }
-        return $errors;
-    }
-
     /**
      * Show the form for creating a new resource.
      *
@@ -68,38 +36,28 @@ class PostController extends Controller
      */
     public function create(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'title' => 'required|unique:posts',
+            'anons' => 'required',
+            'text' => 'required',
+            'image' => 'required|max:2048|image',
+        ]);
         $response = new JsonResponse();
-        $errors = array();
-        $req = $request->all();
-        $json = json_decode(array_shift($req), true);
-        $file = current($request->file());
-        if($file != null || $file != ''){
-            $validFile = $this->validateImage($file);
-        }
-        else{
-            $errors = array_add($errors, 'image', 'no image');
-        }
-        $imageURL = $validFile === true ? $request->root() . '/api/post_images/' . $file->getClientOriginalName() : $errors = $validFile;
-        $title = $json['title'] ?? $errors = array_add($errors, 'title', 'title is empty');
-        $anons = $json['anons'] ?? $errors = array_add($errors, 'anons', 'anons is empty');
-        $text = $json['text'] ?? $errors = array_add($errors, 'text', 'text is empty');
-        $tags = isset($json['tags']) ? $json['tags'] : null;
-        $tags = $this->validateTags($tags);
-        //Log::info($tags);
-        $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
-        //Проверка на уникальность
-        $checkUnique = Post::where('title', $title)->first() == null ? : $errors = array_add($errors, 'title', 'already exists');Log::info($checkUnique);
-        if(count($errors) === 0){
+        if(!$validator->fails()){
             $post = new Post;
-            $post->fill($json);
-            $post->image = $imageURL;
+            $post->fill($request->all());
+            $file = $request->file('image');
+            $post->image = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
+            $file->storeAs('/post_images', $file->getClientOriginalName());
+            $post->tags = explode(',',$request['tags']);
+            $post->datatime = date('H:i d.m.Y');
             $post->save();
-            $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $post->id, 'image' => $imageURL ) ) );
+            $response->setJson( json_encode( array( 'status' => 'true', 'post_id' => $post->id) ) );
             $response->setStatusCode(201, 'Successful creation');
             return $response;
         }
         else{
-            $response->setJson( json_encode( array( 'status' => false, 'message' => $errors) ) );
+            $response->setJson( json_encode( array( 'status' => false, 'message' => $validator->errors()) ) );
             $response->setStatusCode(400, 'Creating error');
             return $response;
         }
@@ -123,9 +81,20 @@ class PostController extends Controller
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response
      */
-    public function show(Article $article)
+    public function show(Request $request , $id)
     {
-        //
+        $response = new JsonResponse();
+        $post = Post::find($id);
+        if($post == null){
+            $response->setStatusCode(404, 'Post not found');
+            $response->setJson(json_encode(array('message' => 'Post not found')));
+            return $response;
+        }
+        $post['comments'] = $post->comments;
+        $json = json_encode($post);
+        $response->setJson($json);
+        $response->setStatusCode(200, 'View post');
+        return $response;
     }
 
     /**
@@ -134,11 +103,9 @@ class PostController extends Controller
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response
      */
-    public function edit(Request $request, $idPost)
+    public function edit(Request $request, $id)
     {
-        $req = $request->all();
-        $json = json_decode(array_shift($req), true);
-        $post = Post::find($idPost);
+        $post = Post::find($id);
         if($post == null || $post == ""){
             $response = new JsonResponse();
             $response->setJson(json_encode(array("message" => "Post don't found")));
@@ -146,32 +113,27 @@ class PostController extends Controller
             return $response;
         }
         $response = new JsonResponse();
-        $errors = array();
-        $file = current($request->file());
-        $validFile = false;
-        if($file != null && $file != ''){
-            $validFile = $this->validateImage($file);
-        }
-        $imageURL = $validFile != true ?  : $request->root() . '/api/post_images/' . $file->getClientOriginalName();
-        $post->image = $imageURL != false ? $imageURL : $post->image;
-        $tags = isset($json['tags']) ? $json['tags'] : null;
-        $tags = $this->validateTags($tags);
-        $title = $json['title'];
-        $errors = $tags != false ? $errors : $errors = array_add($errors, 'tags' , 'incorrect tags format');
-        $checkUnique = Post::where('title', $title)->first() == null ? : $errors = array_add($errors, 'title', 'already exists');
-        if(count($errors) === 0){
-            $post->fill($json);
+        $validator = Validator::make($request->all(), [
+            'title' => 'unique:posts',
+            'image' => 'max:2048|image',
+        ]);
+        if(!$validator->fails()){
+            $post->fill($request->all());
+            $file = $request->file('image');
+            if($file != null){
+                $file->storeAs('/post_images', $file->getClientOriginalName());
+                $post->image = $request->root() . '/api/post_images/' . $file->getClientOriginalName();
+            }
             $post->save();
             $response->setJson( json_encode( array( 'status' => 'true', 'post' => $post ) ) );
             $response->setStatusCode(201, 'Successful creation');
             return $response;
         }
         else{
-            $response->setJson( json_encode( array( 'status' => false, 'message' => $errors) ) );
+            $response->setJson( json_encode( array( 'status' => false, 'message' => $validator->errors()) ) );
             $response->setStatusCode(400, 'Editing error');
             return $response;
         }
-        return json_encode($post->first());
     }
 
     /**
@@ -181,7 +143,7 @@ class PostController extends Controller
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, Article $article)
+    public function update(Request $request)
     {
         //
     }
@@ -192,8 +154,18 @@ class PostController extends Controller
      * @param  \App\Article  $article
      * @return \Illuminate\Http\Response
      */
-    public function destroy(Article $article)
+    public function destroy(Request $request, $id)
     {
-        //
+        $post = Post::find($id);
+        $response = new JsonResponse();
+        if($post == null || $post == ""){
+            $response->setJson(json_encode(array("message" => "Post don't found")));
+            $response->setStatusCode(404, "Post don't found");
+            return $response;
+        }
+        $post->delete();
+        $response->setJson(json_encode(array("status" => true)));
+        $response->setStatusCode(201, "Successful delete");
+        return $response;
     }
 }

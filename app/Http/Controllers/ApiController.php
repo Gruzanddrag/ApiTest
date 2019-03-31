@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Validator;
 use App\Http\Middleware\isAuth;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -11,13 +12,11 @@ class ApiController extends Controller
 {
 
     public function authUser(Request $request){
-        $req = (object) $request->all();
-        $json = json_decode(current($req)) ?? $req;
-        $login = $json->{'login'};
-        $pass = $json->{'password'};
+        $login = $request->all()['login'] ?? null;
+        $pass = $request->all()['password'] ?? null;
         $token = isAuth::$userToken;
         $response = new JsonResponse();
-        if($login == "admin" && $pass == "admin"){
+        if($login == "admin" && $pass == "admin" ){
             $response->setJson(json_encode(array('status' => 'true', 'token' => $token)));
             return $response->setStatusCode(200, 'Successful authorization');
         }

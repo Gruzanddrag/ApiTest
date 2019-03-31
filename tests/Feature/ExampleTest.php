@@ -14,7 +14,7 @@ class ExampleTest extends TestCase
      */
     public function testBasicTest()
     {
-        $response = $this->post('/api/posts/6');
+        $response = $this->post('/api/posts/6/comments');
         $response->assertStatus(201);
     }
 }
