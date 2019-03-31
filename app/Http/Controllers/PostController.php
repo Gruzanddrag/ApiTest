@@ -70,9 +70,13 @@ class PostController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function searchByTag(Request $request, $tagName)
     {
-        //
+        $posts = Post::where('tags', 'like', '%'. $tagName .'%')->get();
+        $response = new JsonResponse();
+        $response->setStatusCode(200, 'Found posts');
+        $response->setJson(json_encode($posts));
+        return $response;
     }
 
     /**

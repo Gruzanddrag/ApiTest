@@ -16,6 +16,7 @@
 Route::prefix('api')->group(function(){
     Route::post('/lol',  'PostController@lol');
     Route::post('/auth', 'ApiController@authUser');
+    Route::get('posts/tags/{tagName}', 'PostController@searchByTag');
     Route::middleware('isAuth')->group(function (){
         Route::post('/posts', 'PostController@create');
         Route::post('/bul', 'PostController@index');
